@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+
+import argparse
+import asyncio
+import socket
+import types
+
+CFG = types.SimpleNamespace(
+    MCAST_ADDR="255.255.255.255",
+    MCAST_PORT=2021,
+    NOTIFY_INTERVAL=5,
+)
+
+
+def uhttp_msg(method, headers):
+    out = ["{} * HTTP/1.1".format(method)]
+    for k, v in headers.items():
+        out.append("{}: {}".format(k, v))
+    out.append("\r\n")
+    return "\r\n".join(out)
+
+
+def notify_msg():
+    headers = {
+        'HOST': "{}:{}".format(CFG.MCAST_ADDR, CFG.MCAST_PORT),
+        'Server': 'Buildroot/2018.02-rc3 UPnP/1.0 ssdpd/1.8',
+        'Location': CFG.PRINTER_IP,
+        'NT': 'urn:bambulab-com:device:3dprinter:1',
+        'USN': CFG.PRINTER_SN,
+        'Cache-Control': 'max-age=1800',
+        'DevModel.bambu.com': 'C11',
+        'DevName.bambu.com': CFG.PRINTER_NAME,
+        'DevSignal.bambu.com': '-40',
+        'DevConnect.bambu.com': 'lan',
+        'DevBind.bambu.com': ' free',
+        'Devseclink.bambu.com': ' secure',
+    }
+    return uhttp_msg("NOTIFY", headers).encode()
+
+
+def setup():
+    parser = argparse.ArgumentParser(
+        description='Notify Bambu Studio of your printer on another LAN')
+    parser.add_argument("PRINTER_IP", help="Printer IP")
+    parser.add_argument("PRINTER_SN",
+                        help="Printer Serial Number",
+                        type=str.upper)
+    args = parser.parse_args()
+    CFG.PRINTER_IP = args.PRINTER_IP
+    CFG.PRINTER_SN = args.PRINTER_SN
+    CFG.PRINTER_NAME = "3DP-{}-{}".format(CFG.PRINTER_SN[0:3],
+                                          CFG.PRINTER_SN[-3:])
+    return args
+
+
+async def sendloop(transport):
+    target = (CFG.MCAST_ADDR, CFG.MCAST_PORT)
+
+    msg = notify_msg()
+
+    while True:
+        print("SSDP NOTIFY for printer {} ( {} ) sent to {} {}".format(
+            CFG.PRINTER_NAME, CFG.PRINTER_IP, CFG.MCAST_ADDR, CFG.MCAST_PORT))
+        transport.sendto(msg, target)
+        await asyncio.sleep(CFG.NOTIFY_INTERVAL)
+
+
+def main():
+
+    args = setup()
+
+    loop = asyncio.get_event_loop()
+    connect = loop.create_datagram_endpoint(asyncio.DatagramProtocol,
+                                            family=socket.AF_INET,
+                                            allow_broadcast=True)
+
+    transport, protocol = loop.run_until_complete(connect)
+
+    try:
+        asyncio.run(sendloop(transport))
+    except KeyboardInterrupt:
+        pass
+
+    transport.close()
+    loop.close()
+
+
+if __name__ == "__main__":
+    main()

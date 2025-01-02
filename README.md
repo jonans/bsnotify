@@ -20,11 +20,18 @@ Tested on Linux and Windows with P1P. If it works on X1 series let me know.
   - IP address
   - Serial Number
   - Access Code
-- Run bsnotify on the same LAN as your slicer.
+- Run bsnotify on the same LAN as your slicer (the device running Bambu Studio).
 
 
 ```
 python3 bsnotify <printer-ip> <printer-serial-number>
+```
+
+Optional:
+Specify the source address(es) as comma separated values. This will allow for broadcasting on specific network(s) from a server or router (such as a Unifi Dream Machine) that has multiple interfaces.
+
+```
+python3 bsnotify <printer-ip> <printer-serial-number> <local address(es)>
 ```
 
 ## The Details

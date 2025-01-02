@@ -10,7 +10,8 @@ SSDP is the only way.
 
 Thats where bsnotify comes in, it will notify BS of printers outside your LAN.
 
-Tested on Linux and Windows with P1P. If it works on X1 series let me know.
+Tested on Linux and Windows with P1P. 
+Tested on MacOS and Linux with X1C.
 
 ## Requirements
 
@@ -41,4 +42,5 @@ python3 bsnotify <printer-ip> <printer-serial-number> <local address(es)>
   - to 255.255.255.255:2021  - BS responds to this
   - to 239.255.255.250:1990  - BS ignores this
 - BS sends out SEARCH requests but never gets a reply.
+- This script spoofs the multicast response from the printer but on the network that you're using for Bambu Studio. Even if you add the device manually, Bambu Studio still expects this multicast packet.
 

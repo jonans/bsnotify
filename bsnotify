@@ -4,6 +4,10 @@ import argparse
 import asyncio
 import socket
 import types
+import threading
+import time
+import os
+import signal
 
 CFG = types.SimpleNamespace(
     MCAST_ADDR="255.255.255.255",
@@ -45,45 +49,68 @@ def setup():
     parser.add_argument("PRINTER_SN",
                         help="Printer Serial Number",
                         type=str.upper)
+    parser.add_argument("LOCAL_ADDRESSES", help="Comma Separated Address(es) of the local interface to broadcast from" +
+                        "\nUseful for running on a server or router with multiple interfaces and broadcast domains" +
+                        "\nEx:"+
+                        "\n10.1.1.1"+
+                        "\n10.1.1.1,10.2.1.1",
+                        default=None, 
+                        nargs='?')
     args = parser.parse_args()
     CFG.PRINTER_IP = args.PRINTER_IP
     CFG.PRINTER_SN = args.PRINTER_SN
     CFG.PRINTER_NAME = "3DP-{}-{}".format(CFG.PRINTER_SN[0:3],
                                           CFG.PRINTER_SN[-3:])
+    CFG.LOCAL_ADDRESSES = args.LOCAL_ADDRESSES.split(",") if args.LOCAL_ADDRESSES else [None]
     return args
 
 
-async def sendloop(transport):
+async def sendloop(transport, local_addr):
     target = (CFG.MCAST_ADDR, CFG.MCAST_PORT)
 
     msg = notify_msg()
 
     while True:
-        print("SSDP NOTIFY for printer {} ( {} ) sent to {} {}".format(
-            CFG.PRINTER_NAME, CFG.PRINTER_IP, CFG.MCAST_ADDR, CFG.MCAST_PORT))
+        print("SSDP NOTIFY for printer {} ( {} ) sent to {} {} from address: {}".format(
+            CFG.PRINTER_NAME, CFG.PRINTER_IP, CFG.MCAST_ADDR, CFG.MCAST_PORT, local_addr or "default"))
         transport.sendto(msg, target)
         await asyncio.sleep(CFG.NOTIFY_INTERVAL)
 
 
 def main():
-
     args = setup()
 
-    loop = asyncio.get_event_loop()
-    connect = loop.create_datagram_endpoint(asyncio.DatagramProtocol,
-                                            family=socket.AF_INET,
-                                            allow_broadcast=True)
-
-    transport, protocol = loop.run_until_complete(connect)
+    threads = list()
 
     try:
-        asyncio.run(sendloop(transport))
+        for local_address in CFG.LOCAL_ADDRESSES:
+            thread = threading.Thread(target=asyncio.run, args=(coroutine(local_address),))
+            threads.append(thread)
+            thread.start()
+        while True:
+            time.sleep(100)
     except KeyboardInterrupt:
-        pass
+        print("Stopping threads...")
+        os.kill(os.getpid(), signal.SIGTERM)
+
+async def coroutine(local_address=None):
+    # report a message
+    print(f'{local_address or "default"} coroutine running...', flush=True)
+    # get the loop for this thread
+    loop = asyncio.get_running_loop()
+
+    local_addr_tuple = (local_address, None) if local_address else None
+    connect = loop.create_datagram_endpoint(asyncio.DatagramProtocol,
+                                            family=socket.AF_INET,
+                                            allow_broadcast=True,
+                                            local_addr=local_addr_tuple)
+
+    transport, protocol = await connect
+
+    await sendloop(transport, local_address)
 
     transport.close()
     loop.close()
-
 
 if __name__ == "__main__":
     main()

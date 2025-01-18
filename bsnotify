@@ -56,11 +56,18 @@ def setup():
                         "\n10.1.1.1,10.2.1.1",
                         default=None, 
                         nargs='?')
+    parser.add_argument("PRINTER_NAME",
+                        help="Override generated 3DP-SER-IAL printer name with custom value",
+                        default=None,
+                        nargs="?")
     args = parser.parse_args()
     CFG.PRINTER_IP = args.PRINTER_IP
     CFG.PRINTER_SN = args.PRINTER_SN
-    CFG.PRINTER_NAME = "3DP-{}-{}".format(CFG.PRINTER_SN[0:3],
-                                          CFG.PRINTER_SN[-3:])
+    if args.PRINTER_NAME is not None:
+        CFG.PRINTER_NAME = args.PRINTER_NAME
+    else:
+        CFG.PRINTER_NAME = "3DP-{}-{}".format(CFG.PRINTER_SN[0:3],
+                                              CFG.PRINTER_SN[-3:])
     CFG.LOCAL_ADDRESSES = args.LOCAL_ADDRESSES.split(",") if args.LOCAL_ADDRESSES else [None]
     return args
 

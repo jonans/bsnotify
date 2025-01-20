@@ -35,6 +35,13 @@ Specify the source address(es) as comma separated values. This will allow for br
 python3 bsnotify <printer-ip> <printer-serial-number> <local address(es)>
 ```
 
+By default, bsnotify generates the printer name from its serial number (`3DP-<SER>-<IAL>`).
+You can override this name with your own name:
+
+```
+python3 bsnotify <printer-ip> <printer-serial-number> <local address(es)> <printer-name>
+```
+
 ## The Details
 
 - Printer SSDP server does not seem to respond to SEARCH requests in any format.
